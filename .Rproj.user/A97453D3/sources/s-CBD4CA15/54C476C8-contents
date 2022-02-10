@@ -2,10 +2,11 @@
 
 library(ggplot2)
 library(stringr)
+source("PeriodEstimate.R")
 
 N <- 10000
 
-Pisano_plot <- function(N, save=T){
+Pisano_plot <- function(N, save=T, est_view=T){
   
   p <- primes::generate_primes(max=N) 
   
@@ -26,9 +27,9 @@ Pisano_plot <- function(N, save=T){
     
   }
   
-  prd <- sapply(p, get_prd)
+  prd_df <- data.frame(prime = p, period = sapply(p, get_prd))
   
-  prd_df <- data.frame(prime = p, period = prd)
+  prd_est <- get_est(N, est_view)
   
   plt <- ggplot(prd_df, aes(x=p, y=prd)) + 
     geom_point(size=0.05) +
@@ -36,16 +37,21 @@ Pisano_plot <- function(N, save=T){
     ylab("Period (mod p)") +
     ggtitle("Periods of the Fibonacci Numbers Modulo p")
   
-    plt
+  for(i in 1:length(prd_est)){
+    plt <- plt + 
+      geom_function(fun = prd_est[[i]], color = "red")
+  }
   
-    file_nm <- paste0(
-      "./Plots/",
-      "PisanoPlot_",
-      N,
-      "_primes-only_",
-      format(Sys.time(), "%d-%b-%Y %H.%M"),
-      ".pdf"
-    )
+  plt
+  
+  file_nm <- paste0(
+    "./Plots/",
+    "PisanoPlot_",
+    N,
+    "_primes-only_",
+    format(Sys.time(), "%d-%b-%Y %H.%M"),
+    ".pdf"
+  )
   
   if(save==T){
     dev.copy(pdf, file_nm, width = 6, height = 4)
