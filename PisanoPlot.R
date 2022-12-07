@@ -1,7 +1,10 @@
 # Plot the Pisano periods modulo p up to p=N
 
 library(ggplot2)
+library(ggrepel)
 library(stringr)
+library(dplyr)
+library(reshape2)
 library(latex2exp)
 source("PeriodEstimate.R")
 
@@ -49,26 +52,60 @@ Pisano_plot <- function(N, pal, save=F){
     
   }
   
-  prd_df <- data.frame(prime = p, period = sapply(p, get_prd))
+  est <- prd_est$funs %>%
+    lapply(
+      function(F) sapply(p, function(x) do.call(F,list(x)))
+    ) 
+  names(est) <- prd_est$nms
   
-  plt <- ggplot(prd_df, aes(x=prime, y=period)) + 
-    lapply(1:length(prd_est$funs), function(i) {
-      est_nm <- names(pal)[i]
-      est_fun <- prd_est$funs[[i]]
-      line <- geom_function(fun = est_fun,
-                            aes(colour = est_nm))
-      list(line)
-    }) +
-    geom_point(size=0.05, alpha=0.5) +
-    scale_colour_manual(name = NULL, 
-                        values = pal, 
-                        labels = unname(TeX(names(pal)))) +
-    theme(legend.text.align = 0) +
+  prd_df <- data.frame(prime = p, period = sapply(p, get_prd)) %>%
+    bind_cols(est) %>%
+    melt(id.vars = c("prime", "period"),
+         variable.name = "label", 
+         value.name = "estimate")
+  
+  plt <- prd_df %>%
+    mutate(legend = if_else(prime == max(prime), as.character(label), NA_character_)) %>%
+    ggplot(aes(x=prime, y=estimate, group=label, color=label)) +
+    geom_line() +
+    geom_label_repel(aes(label = legend),
+                     box.padding = 0.1,
+                     nudge_x=500,
+                     size = 2.5,
+                     xlim = c(NA, Inf),
+                     parse=T,
+                     na.rm=T) +
+    scale_x_continuous(
+      limits = c(0, N+1000)
+    ) +
+    scale_color_discrete(guide = "none") +
+    geom_point(aes(x=prime,y=period),size=0.05,color='black') +
     xlab("p") +
     ylab("Period (mod p)") +
-    ggtitle("Periods of the Fibonacci Numbers Modulo Primes")
-  
+    ggtitle("Periods of the Fibonacci Numbers (mod p)") +
+    theme(text = element_text(family = "sans"))
   plt
+  
+  # plt <- prd_df %>%
+  #   ggplot(aes(x=prime, y=period)) +
+  #   lapply(1:length(prd_est$funs), function(i) {
+  #     est_nm <- names(pal)[i]
+  #     est_fun <- prd_est$funs[[i]]
+  #     line <- geom_function(fun = est_fun,
+  #                           aes(colour = est_nm))
+  #     list(line)
+  #   }) +
+  #   geom_label_repel(c(1,2,3,4,5)) +
+  #   geom_point(size=0.05, alpha=0.5) +
+  #   scale_colour_manual(name = NULL,
+  #                       values = pal,
+  #                       labels = unname(TeX(names(pal)))) +
+  #   theme(legend.text.align = 0) +
+  #   xlab("p") +
+  #   ylab("Period (mod p)") +
+  #   ggtitle("Periods of the Fibonacci Numbers Modulo Primes")
+  # 
+  # plt
   
   file_nm <- paste0(
     "./Plots/",
@@ -88,6 +125,6 @@ Pisano_plot <- function(N, pal, save=F){
   
 }
 
-prd <- Pisano_plot(N, cb_pal, save=T)
+prd <- Pisano_plot(N, cb_pal, save=F)
 prd$plt
 
